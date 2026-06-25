@@ -1,0 +1,50 @@
+name = "vaultdrive"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_YOUR_KV_ID"
+
+# ── 明文配置（非敏感，可直接写在这里）──────────────────────────
+[vars]
+
+# 存储后端：telegram（默认）| s3
+STORAGE = "telegram"
+
+# S3 配置（STORAGE=s3 时填写，以 Cloudflare R2 为例）
+# S3_ENDPOINT  = "https://<account-id>.r2.cloudflarestorage.com"
+# S3_BUCKET    = "my-bucket"
+# S3_REGION    = "auto"
+# S3_PUBLIC_URL = "https://cdn.example.com"   # 可选，有则跳过 Worker 代理
+
+# Session 有效期（秒）
+SESSION_TTL = "86400"
+
+# 完全关闭认证（内网/信任环境）：改为 "true" 即可
+AUTH_DISABLED = "false"
+
+
+# ── 加密 Secrets（敏感信息，通过以下方式设置）──────────────────
+#
+#   方式一（CLI）：wrangler secret put <KEY>
+#   方式二（界面）：Cloudflare Dashboard → Workers & Pages
+#                  → vaultdrive → Settings → Variables → Secrets
+#
+# 必填（根据所选存储和认证方式）：
+#
+#   Telegram 存储 / 验证码登录（二者共用同一 Bot）：
+#     TELEGRAM_BOT_TOKEN   Bot Token（BotFather 获取）
+#     TELEGRAM_CHAT_ID     私有频道 Chat ID（如 -1001234567890）
+#
+#   S3 存储：
+#     S3_ACCESS_KEY        Access Key ID
+#     S3_SECRET_KEY        Secret Access Key
+#
+#   Web UI 密码登录：
+#     LOGIN_PASS           Web UI 登录密码
+#
+#   WebDAV 客户端：
+#     WEBDAV_USER          WebDAV 用户名
+#     WEBDAV_PASS          WebDAV 密码（与 LOGIN_PASS 完全独立）
