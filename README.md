@@ -6,7 +6,7 @@
 
 ## 存储后端
 
-选择其中一种，通过 `STORAGE` 变量切换：
+选择其中一种，通过 `storage` 变量切换：
 
 | 后端 | 值 | 单文件限制 | 适合场景 |
 |------|---|-----------|---------|
@@ -52,24 +52,24 @@ id = "你的 namespace id"
 
 ```toml
 [vars]
-STORAGE       = "telegram"   # telegram | s3 | webdav
-SESSION_TTL   = "86400"      # Session 有效期（秒）
-AUTH_DISABLED = "false"      # true = 完全跳过登录
+storage       = "telegram"   # telegram | s3 | webdav
+session_ttl   = "86400"      # Session 有效期（秒）
+auth_disabled = "false"      # true = 完全跳过登录
 ```
 
 S3 额外配置（非敏感部分）：
 
 ```toml
-S3_ENDPOINT   = "https://xxx.r2.cloudflarestorage.com"
-S3_BUCKET     = "my-bucket"
-S3_REGION     = "auto"
-S3_PUBLIC_URL = "https://cdn.example.com"  # 可选，走 CDN 跳过 Worker 代理
+s3_endpoint   = "https://xxx.r2.cloudflarestorage.com"
+s3_bucket     = "my-bucket"
+s3_region     = "auto"
+s3_public_url = "https://cdn.example.com"  # 可选，走 CDN 跳过 Worker 代理
 ```
 
 WebDAV 额外配置（非敏感部分）：
 
 ```toml
-WEBDAV_STORAGE_URL = "https://dav.example.com/remote.php/dav/files/user/"
+webdav_storage_url = "https://dav.example.com/remote.php/dav/files/user/"
 ```
 
 ### 4. 设置 Secrets
@@ -84,23 +84,23 @@ wrangler secret put <KEY>
 
 ```
 # Telegram 存储 + 验证码登录（共用同一 Bot）
-TELEGRAM_BOT_TOKEN
-TELEGRAM_CHAT_ID
+telegram_bot_token
+telegram_chat_id
 
 # S3 存储
-S3_ACCESS_KEY
-S3_SECRET_KEY
+s3_access_key
+s3_secret_key
 
 # WebDAV 存储
-WEBDAV_STORAGE_USER
-WEBDAV_STORAGE_PASS
+webdav_storage_user
+webdav_storage_pass
 
 # Web UI 登录密码
-LOGIN_PASS
+login_pass
 
 # WebDAV 对外接口（供 Finder / rclone 挂载）
-WEBDAV_USER
-WEBDAV_PASS
+webdav_user
+webdav_pass
 ```
 
 ### 5. 部署
@@ -124,17 +124,17 @@ wrangler deploy
 
 ### S3 兼容存储
 
-填写 `wrangler.toml` 中的 `S3_ENDPOINT`、`S3_BUCKET`、`S3_REGION`，  
-通过 Secrets 设置 `S3_ACCESS_KEY` 和 `S3_SECRET_KEY`。
+填写 `wrangler.toml` 中的 `s3_endpoint`、`s3_bucket`、`s3_region`，  
+通过 Secrets 设置 `s3_access_key` 和 `s3_secret_key`。
 
-Cloudflare R2 用户将 `S3_REGION` 设为 `auto`，端点格式为：
+Cloudflare R2 用户将 `s3_region` 设为 `auto`，端点格式为：
 ```
 https://<account-id>.r2.cloudflarestorage.com
 ```
 
 ### WebDAV 存储
 
-填写 `wrangler.toml` 中的 `WEBDAV_STORAGE_URL`，通过 Secrets 设置账号密码。
+填写 `wrangler.toml` 中的 `webdav_storage_url`，通过 Secrets 设置账号密码。
 
 常见服务地址：
 
@@ -153,9 +153,9 @@ https://<account-id>.r2.cloudflarestorage.com
 
 | 方式 | 所需变量 | 说明 |
 |------|---------|------|
-| 密码登录 | `LOGIN_PASS` | 与 WebDAV 密码完全独立 |
-| 验证码登录 | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` | 6 位 OTP，5 分钟有效，复用存储 Bot |
-| 关闭登录 | `AUTH_DISABLED=true` | 完全开放访问，慎用 |
+| 密码登录 | `login_pass` | 与 WebDAV 密码完全独立 |
+| 验证码登录 | `telegram_bot_token` + `telegram_chat_id` | 6 位 OTP，5 分钟有效，复用存储 Bot |
+| 关闭登录 | `auth_disabled=true` | 完全开放访问，慎用 |
 
 两种方式同时配置时，登录页自动出现 Tab 切换；只配一种则只显示对应方式。
 
@@ -164,7 +164,7 @@ https://<account-id>.r2.cloudflarestorage.com
 ## WebDAV 挂载
 
 挂载地址：`https://vaultdrive.<your-subdomain>.workers.dev/dav`  
-账号密码：`WEBDAV_USER` / `WEBDAV_PASS`
+账号密码：`webdav_user` / `webdav_pass`
 
 **macOS Finder** → 前往 → 连接服务器（`⌘K`）→ 粘贴地址
 
@@ -177,8 +177,8 @@ https://<account-id>.r2.cloudflarestorage.com
 type = webdav
 url  = https://vaultdrive.<your-subdomain>.workers.dev/dav
 vendor = other
-user = WEBDAV_USER
-pass = WEBDAV_PASS  # 需用 rclone obscure 加密
+user = webdav_user
+pass = webdav_pass  # 需用 rclone obscure 加密
 ```
 
 **Cyberduck / Mountain Duck** — 协议选 WebDAV (HTTPS)，路径填 `/dav`
