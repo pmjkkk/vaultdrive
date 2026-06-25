@@ -1,0 +1,14 @@
+{
+  "name": "vaultdrive",
+  "version": "1.0.0",
+  "description": "Personal cloud drive on Cloudflare Workers — Telegram / S3 storage + WebDAV",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "kv:create": "wrangler kv namespace create VAULTDRIVE_KV"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
