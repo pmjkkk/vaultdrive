@@ -42,7 +42,7 @@ async function apiUpload(request, env, url) {
   const meta = {
     type: 'file', path: filePath, name: filename,
     size, mime, fileId, s3Key, mtime: Date.now(), etag: fileId,
-    storage: env.STORAGE || 'telegram',
+    storage: env.storage || 'telegram',
   };
   await saveFileMeta(env, filePath, meta);
   return json({ ok: true, path: filePath, size });
@@ -65,7 +65,7 @@ async function apiDownload(env, url) {
   if (meta.type === 'dir') return json({ error: 'Is a directory' }, 400);
 
   // WebDAV 后端需带认证头代理，不能直接返回裸 URL
-  const upstream = env.STORAGE === 'webdav'
+  const upstream = env.storage === 'webdav'
     ? await storageProxyDownload(env, meta)
     : await fetch(await storageDownloadURL(env, meta));
   return new Response(upstream.body, {
