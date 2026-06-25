@@ -33,14 +33,14 @@
 
 ### 2. 创建 KV Namespace
 
-进入 **Cloudflare Dashboard → Workers & Pages → KV** → 点击 **Create namespace**，名称填 `VAULTDRIVE_KV`，创建后复制 Namespace ID。
+进入 **Cloudflare Dashboard → Workers & Pages → KV** → 点击 **Create namespace**，名称填 `vaultdrive_kv`，创建后复制 Namespace ID。
 
 ### 3. 在 Workers 中绑定 KV
 
 进入 **Workers & Pages → vaultdrive → Settings → Bindings** → 点击 **Add** → 选择 **KV Namespace**：
 
 - Variable name：`KV`
-- KV Namespace：选择刚创建的 `VAULTDRIVE_KV`
+- KV Namespace：选择刚创建的 `vaultdrive_kv`
 
 ### 4. 配置环境变量
 
