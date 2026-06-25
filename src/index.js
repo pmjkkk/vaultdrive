@@ -1,12 +1,12 @@
 // ============================================================
 //  VaultDrive: Cloudflare Worker 入口
 //
-//  存储后端：  env.STORAGE = 'telegram'（默认）| 's3'
+//  存储后端：  env.storage = 'telegram'（默认）| 's3'
 //  认证方式：  Session Cookie
-//    - 密码登录：配置 LOGIN_PASS
-//    - 验证码：  配置 TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
-//    - 两者可同时开启；AUTH_DISABLED=true 跳过所有认证
-//  WebDAV：    Basic Auth，独立使用 WEBDAV_USER / WEBDAV_PASS
+//    - 密码登录：配置 login_pass
+//    - 验证码：  配置 telegram_bot_token + telegram_chat_id
+//    - 两者可同时开启；auth_disabled=true 跳过所有认证
+//  WebDAV：    Basic Auth，独立使用 webdav_user / webdav_pass
 // ============================================================
 
 import { handleWebDAV } from './webdav.js';
@@ -19,7 +19,7 @@ export default {
     const url = new URL(request.url);
 
     // ── 0. 完全关闭认证 ───────────────────────────────────
-    if (env.AUTH_DISABLED === 'true') {
+    if (env.auth_disabled === 'true') {
       return route(request, env, url);
     }
 
@@ -51,14 +51,14 @@ async function route(request, env, url) {
   return handleUI(request, env, url);
 }
 
-// WebDAV 专用 Basic Auth（使用 WEBDAV_USER / WEBDAV_PASS）
+// WebDAV 专用 Basic Auth（使用 webdav_user / webdav_pass）
 function checkBasicAuth(request, env) {
   const auth = request.headers.get('Authorization') || '';
   const [scheme, encoded] = auth.split(' ');
   if (scheme !== 'Basic' || !encoded) return false;
   try {
     const [user, pass] = atob(encoded).split(':');
-    return user === (env.WEBDAV_USER || 'admin') && pass === env.WEBDAV_PASS;
+    return user === (env.webdav_user || 'admin') && pass === env.webdav_pass;
   } catch { return false; }
 }
 
