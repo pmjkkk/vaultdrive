@@ -9,8 +9,8 @@
 const TG_API = 'https://api.telegram.org';
 
 export async function tgUpload(env, buffer, filename, mime) {
-  const token  = env.TELEGRAM_BOT_TOKEN;
-  const chatId = env.TELEGRAM_CHAT_ID;
+  const token  = env.telegram_bot_token;
+  const chatId = env.telegram_chat_id;
 
   const form = new FormData();
   form.append('chat_id', chatId);
@@ -32,7 +32,7 @@ export async function tgUpload(env, buffer, filename, mime) {
 }
 
 export async function tgDownloadURL(env, fileId) {
-  const token = env.TELEGRAM_BOT_TOKEN;
+  const token = env.telegram_bot_token;
 
   const resp = await fetch(`${TG_API}/bot${token}/getFile?file_id=${fileId}`);
   const data = await resp.json();
