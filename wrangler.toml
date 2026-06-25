@@ -10,14 +10,18 @@ id = "a3e171a8d653447daed3f7064212fd5b"
 # ── 明文配置（非敏感，可直接写在这里）──────────────────────────
 [vars]
 
-# 存储后端：telegram（默认）| s3
+# 存储后端：telegram（默认）| s3 | webdav
 STORAGE = "telegram"
 
 # S3 配置（STORAGE=s3 时填写，以 Cloudflare R2 为例）
-# S3_ENDPOINT  = "https://<account-id>.r2.cloudflarestorage.com"
-# S3_BUCKET    = "my-bucket"
-# S3_REGION    = "auto"
+# S3_ENDPOINT   = "https://<account-id>.r2.cloudflarestorage.com"
+# S3_BUCKET     = "my-bucket"
+# S3_REGION     = "auto"
 # S3_PUBLIC_URL = "https://cdn.example.com"   # 可选，有则跳过 Worker 代理
+
+# WebDAV 存储（STORAGE=webdav 时填写）
+# WEBDAV_STORAGE_URL = "https://dav.example.com/remote.php/dav/files/user/"
+# 支持：Nextcloud / 坚果云 / 群晖 WebDAV / Box / 任意标准 WebDAV 服务
 
 # Session 有效期（秒）
 SESSION_TTL = "86400"
@@ -35,16 +39,20 @@ AUTH_DISABLED = "false"
 # 必填（根据所选存储和认证方式）：
 #
 #   Telegram 存储 / 验证码登录（二者共用同一 Bot）：
-#     TELEGRAM_BOT_TOKEN   Bot Token（BotFather 获取）
-#     TELEGRAM_CHAT_ID     私有频道 Chat ID（如 -1001234567890）
+#     TELEGRAM_BOT_TOKEN     Bot Token（BotFather 获取）
+#     TELEGRAM_CHAT_ID       私有频道 Chat ID（如 -1001234567890）
 #
 #   S3 存储：
-#     S3_ACCESS_KEY        Access Key ID
-#     S3_SECRET_KEY        Secret Access Key
+#     S3_ACCESS_KEY          Access Key ID
+#     S3_SECRET_KEY          Secret Access Key
+#
+#   WebDAV 存储：
+#     WEBDAV_STORAGE_USER    远端 WebDAV 用户名
+#     WEBDAV_STORAGE_PASS    远端 WebDAV 密码
 #
 #   Web UI 密码登录：
-#     LOGIN_PASS           Web UI 登录密码
+#     LOGIN_PASS             Web UI 登录密码
 #
-#   WebDAV 客户端：
-#     WEBDAV_USER          WebDAV 用户名
-#     WEBDAV_PASS          WebDAV 密码（与 LOGIN_PASS 完全独立）
+#   WebDAV 客户端访问本项目：
+#     WEBDAV_USER            WebDAV 用户名
+#     WEBDAV_PASS            WebDAV 密码（与 LOGIN_PASS 完全独立）
