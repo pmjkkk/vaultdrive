@@ -5,7 +5,7 @@
 
 import { listDir, getFileMeta, saveFileMeta, deleteFileMeta, moveFileMeta }
   from './store.js';
-import { storageUpload, storageDownloadURL, storageDelete } from './storage.js';
+import { storageUpload, storageDownloadURL, storageDelete, storageProxyDownload } from './storage.js';
 
 export async function handleAPI(request, env, url) {
   const endpoint = url.pathname.slice('/api/'.length);
@@ -64,8 +64,10 @@ async function apiDownload(env, url) {
   if (!meta)             return new Response('Not Found', { status: 404 });
   if (meta.type === 'dir') return json({ error: 'Is a directory' }, 400);
 
-  const fileURL  = await storageDownloadURL(env, meta);
-  const upstream = await fetch(fileURL);
+  // WebDAV 后端需带认证头代理，不能直接返回裸 URL
+  const upstream = env.STORAGE === 'webdav'
+    ? await storageProxyDownload(env, meta)
+    : await fetch(await storageDownloadURL(env, meta));
   return new Response(upstream.body, {
     headers: {
       'Content-Type':        meta.mime || 'application/octet-stream',
