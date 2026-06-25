@@ -1,23 +1,16 @@
-// ============================================================
-//  api.js — REST API（供 Web UI 调用）
-//  存储后端由 storage.js 统一抽象
-// ============================================================
-
-import { listDir, getFileMeta, saveFileMeta, deleteFileMeta, moveFileMeta }
-  from './store.js';
+import { listDir, getFileMeta, saveFileMeta, deleteFileMeta, moveFileMeta } from './store.js';
 import { storageUpload, storageDownloadURL, storageDelete, storageProxyDownload } from './storage.js';
 
 export async function handleAPI(request, env, url) {
-  const endpoint = url.pathname.slice('/api/'.length);
+  const ep = url.pathname.slice('/api/'.length);
   try {
-    switch (endpoint) {
+    switch (ep) {
       case 'upload':   return await apiUpload(request, env, url);
       case 'list':     return await apiList(env, url);
       case 'download': return await apiDownload(env, url);
       case 'delete':   return await apiDelete(env, url);
       case 'mkdir':    return await apiMkdir(request, env);
       case 'rename':   return await apiRename(request, env);
-      case 'stat':     return await apiStat(env, url);
       default:         return json({ error: 'Not Found' }, 404);
     }
   } catch (e) {
@@ -25,7 +18,6 @@ export async function handleAPI(request, env, url) {
   }
 }
 
-// POST /api/upload?path=/folder
 async function apiUpload(request, env, url) {
   const dir  = url.searchParams.get('path') || '/';
   const form = await request.formData();
@@ -36,35 +28,28 @@ async function apiUpload(request, env, url) {
   const filename = file.name || 'upload';
   const mime     = file.type || 'application/octet-stream';
   const filePath = dir === '/' ? `/${filename}` : `${dir}/${filename}`;
+  const result   = await storageUpload(env, buffer, filename, mime);
 
-  const { fileId, s3Key, size } = await storageUpload(env, buffer, filename, mime);
-
-  const meta = {
+  await saveFileMeta(env, filePath, {
     type: 'file', path: filePath, name: filename,
-    size, mime, fileId, s3Key, mtime: Date.now(), etag: fileId,
-    storage: env.storage || 'telegram',
-  };
-  await saveFileMeta(env, filePath, meta);
-  return json({ ok: true, path: filePath, size });
+    size: result.size, mime, mtime: Date.now(),
+    etag: result.fileId, ...result,
+  });
+  return json({ ok: true, path: filePath, size: result.size });
 }
 
-// GET /api/list?path=/folder
 async function apiList(env, url) {
-  const dir   = url.searchParams.get('path') || '/';
-  const items = await listDir(env, dir);
-  return json({ ok: true, path: dir, items });
+  const items = await listDir(env, url.searchParams.get('path') || '/');
+  return json({ ok: true, items });
 }
 
-// GET /api/download?path=...
 async function apiDownload(env, url) {
   const path = url.searchParams.get('path');
   if (!path) return json({ error: 'path required' }, 400);
-
   const meta = await getFileMeta(env, path);
-  if (!meta)             return new Response('Not Found', { status: 404 });
+  if (!meta)              return new Response('Not Found', { status: 404 });
   if (meta.type === 'dir') return json({ error: 'Is a directory' }, 400);
 
-  // WebDAV 后端需带认证头代理，不能直接返回裸 URL
   const upstream = env.storage === 'webdav'
     ? await storageProxyDownload(env, meta)
     : await fetch(await storageDownloadURL(env, meta));
@@ -77,7 +62,6 @@ async function apiDownload(env, url) {
   });
 }
 
-// DELETE /api/delete?path=...
 async function apiDelete(env, url) {
   const path = url.searchParams.get('path');
   if (!path) return json({ error: 'path required' }, 400);
@@ -87,7 +71,6 @@ async function apiDelete(env, url) {
   return json({ ok: true });
 }
 
-// POST /api/mkdir  { path }
 async function apiMkdir(request, env) {
   const { path } = await request.json();
   if (!path) return json({ error: 'path required' }, 400);
@@ -97,7 +80,6 @@ async function apiMkdir(request, env) {
   return json({ ok: true, path });
 }
 
-// POST /api/rename  { from, to }
 async function apiRename(request, env) {
   const { from, to } = await request.json();
   if (!from || !to) return json({ error: 'from/to required' }, 400);
@@ -105,17 +87,5 @@ async function apiRename(request, env) {
   return json({ ok: true });
 }
 
-// GET /api/stat?path=
-async function apiStat(env, url) {
-  const path = url.searchParams.get('path');
-  if (!path) return json({ error: 'path required' }, 400);
-  const meta = await getFileMeta(env, path);
-  if (!meta) return json({ error: 'Not Found' }, 404);
-  return json({ ok: true, meta });
-}
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status, headers: { 'Content-Type': 'application/json' }
-  });
-}
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
