@@ -2,19 +2,19 @@
 //  auth.js — 登录 / 登出 / Telegram OTP
 //
 //  登录方式（独立开关，任意组合）：
-//    · 密码登录    → 配置 LOGIN_PASS
-//    · 验证码登录  → 配置 TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
+//    · 密码登录    → 配置 login_pass
+//    · 验证码登录  → 配置 telegram_bot_token + telegram_chat_id
 //
 //  两种都配置时登录页显示 Tab 切换；只配一种则只显示那一种。
 //
 //  环境变量：
-//    LOGIN_PASS          Web UI 登录密码（独立于 WebDAV 密码）
-//    WEBDAV_USER         WebDAV Basic Auth 用户名
-//    WEBDAV_PASS         WebDAV Basic Auth 密码（仅供 WebDAV 客户端）
-//    TELEGRAM_BOT_TOKEN  发送验证码的 Bot Token
-//    TELEGRAM_CHAT_ID    接收验证码的 Chat ID
-//    SESSION_TTL         Session 有效期（秒），默认 86400
-//    AUTH_DISABLED       'true' 完全跳过认证
+//    login_pass          Web UI 登录密码（独立于 WebDAV 密码）
+//    webdav_user         WebDAV Basic Auth 用户名
+//    webdav_pass         WebDAV Basic Auth 密码（仅供 WebDAV 客户端）
+//    telegram_bot_token  发送验证码的 Bot Token
+//    telegram_chat_id    接收验证码的 Chat ID
+//    session_ttl         Session 有效期（秒），默认 86400
+//    auth_disabled       'true' 完全跳过认证
 // ============================================================
 
 import { parseCookies } from './index.js';
@@ -34,33 +34,33 @@ export async function handleAuth(request, env, url) {
 
 // ── 登录页 ────────────────────────────────────────────────────
 function getLogin(env) {
-  const hasPass = !!env.LOGIN_PASS;
-  const hasOTP  = !!(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
+  const hasPass = !!env.login_pass;
+  const hasOTP  = !!(env.telegram_bot_token && env.telegram_chat_id);
   return html(loginHTML(hasPass, hasOTP));
 }
 
 // ── 密码登录 ──────────────────────────────────────────────────
 async function postPassword(request, env) {
-  if (!env.LOGIN_PASS) return err('密码登录未启用');
+  if (!env.login_pass) return err('密码登录未启用');
   const { password } = await request.json().catch(() => ({}));
-  if (password !== env.LOGIN_PASS) return err('密码错误');
+  if (password !== env.login_pass) return err('密码错误');
   return issueSession(env);
 }
 
 // ── 请求验证码 ────────────────────────────────────────────────
 async function requestOTP(env) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID)
+  if (!env.telegram_bot_token || !env.telegram_chat_id)
     return err('Telegram 验证码未启用');
 
   const token = genToken(32);
   const code  = String(Math.floor(100000 + Math.random() * 900000));
   await env.KV.put(`otp:${token}`, code, { expirationTtl: 300 });
 
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+  await fetch(`https://api.telegram.org/bot${env.telegram_bot_token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: env.TELEGRAM_CHAT_ID,
+      chat_id: env.telegram_chat_id,
       text: `🔐 VaultDrive 验证码：${code}\n\n5 分钟内有效`
     })
   });
@@ -97,7 +97,7 @@ async function doLogout(request, env) {
 // ── 颁发 Session ──────────────────────────────────────────────
 async function issueSession(env) {
   const token = genToken(48);
-  const ttl   = Number(env.SESSION_TTL) || 86400;
+  const ttl   = Number(env.session_ttl) || 86400;
   await env.KV.put(`session:${token}`, JSON.stringify({ exp: Date.now() + ttl * 1000 }), { expirationTtl: ttl });
   return new Response(JSON.stringify({ ok: true }), {
     headers: {
@@ -123,7 +123,7 @@ function err(msg, s = 401) { return new Response(JSON.stringify({ ok: false, err
 function loginHTML(hasPass, hasOTP) {
   if (!hasPass && !hasOTP) return `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem">
     <b>VaultDrive</b><p style="margin-top:1rem;color:#666">
-    请配置 <code>LOGIN_PASS</code> 或 Telegram Bot 环境变量以启用登录。</p></body></html>`;
+    请配置 <code>login_pass</code> 或 Telegram Bot 环境变量以启用登录。</p></body></html>`;
 
   const both = hasPass && hasOTP;
 
