@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>VaultDrive</title>
+<style>
+/* ── Reset ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+
+/* ── Tokens ──────────────────────────────────────────────── */
+:root {
+  --bg:         #ffffff;
+  --surface:    #f5f5f5;
+  --surface-2:  #ebebeb;
+  --border:     #e5e5e5;
+  --border-mid: #d4d4d4;
+  --border-hi:  #a3a3a3;
+  --text:       #0a0a0a;
+  --text-2:     #525252;
+  --text-3:     #a3a3a3;
+  --green:      #16a34a;
+  --red:        #dc2626;
+  --s:  8px;
+  --m:  16px;
+  --l:  24px;
+  --xl: 32px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'SF Mono', 'Consolas', 'Fira Code', 'Menlo', monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+body { display: flex; flex-direction: column; }
+
+/* ── Header ──────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  height: 44px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  display: flex; align-items: center; gap: var(--m);
+  padding: 0 var(--l);
+  flex-shrink: 0;
+}
+.logo {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text); white-space: nowrap; flex-shrink: 0;
+}
+.logout-btn {
+  flex-shrink: 0; color: var(--text-3); text-decoration: none;
+  padding: 4px 6px; border: 1px solid transparent;
+  transition: color .1s, border-color .1s; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.logout-btn svg { width: 15px; height: 15px; display: block; }
+.logout-btn:hover { color: var(--text-2); border-color: var(--border-mid); }
+.h-sep { width: 1px; height: 14px; background: var(--border-mid); flex-shrink: 0; }
+.breadcrumb {
+  display: flex; align-items: center; gap: 2px;
+  flex: 1; overflow: hidden; font-size: 12px; min-width: 0;
+}
+.breadcrumb a {
+  color: var(--text-2); text-decoration: none; cursor: pointer;
+  padding: 2px 4px; white-space: nowrap; flex-shrink: 0;
+}
+.breadcrumb a:last-child { color: var(--text); font-weight: 500; }
+.breadcrumb a:hover { color: var(--text); }
+.bc-sep { color: var(--text-3); font-size: 10px; padding: 0 1px; user-select: none; flex-shrink: 0; }
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+.toolbar {
+  display: flex; align-items: center; gap: var(--s);
+  padding: 0 var(--l);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 48px;
+  position: relative;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+button {
+  cursor: pointer; border: none; font-family: var(--font);
+  font-size: 12px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 12px; height: 32px; line-height: 1;
+  white-space: nowrap; flex-shrink: 0;
+  transition: background .1s, border-color .1s, color .1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.btn-primary { background: var(--text); color: var(--bg); border: 1px solid var(--text); }
+.btn-primary:hover, .btn-primary:active { background: #262626; border-color: #262626; }
+.btn-ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border-mid); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border-hi); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.btn-ghost:active { background: var(--surface); }
+.btn-icon {
+  background: transparent; color: var(--text-2);
+  border: 1px solid transparent; padding: 0 8px;
+  height: 32px; width: 32px; justify-content: center;
+}
+.btn-icon:hover { color: var(--text); border-color: var(--border-mid); }
+.btn-icon:active { background: var(--surface); }
+
+.t-sep { width: 1px; height: 20px; background: var(--border-mid); margin: 0 2px; flex-shrink: 0; }
+.spacer { flex: 1; min-width: 0; }
+
+/* Search */
+.search-wrap { position: relative; flex-shrink: 0; }
+.search-box {
+  background: transparent; border: 1px solid var(--border-mid);
+  color: var(--text); font-family: var(--font); font-size: 12px;
+  padding: 0 var(--s) 0 28px;
+  height: 32px; width: 192px; outline: none;
+  transition: border-color .1s, width .2s;
+  display: block;
+}
+.search-box:focus { border-color: var(--border-hi); }
+.search-box::placeholder { color: var(--text-3); }
+.search-icon {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  color: var(--text-3); pointer-events: none;
+  display: flex; align-items: center;
+}
+.search-icon svg { width: 13px; height: 13px; display: block; }
+
+/* View toggle */
+.view-toggle { display: flex; border: 1px solid var(--border-mid); flex-shrink: 0; }
+.view-toggle button {
+  border: none; background: transparent; color: var(--text-3);
+  padding: 0 10px; height: 30px; font-size: 12px; width: 32px; justify-content: center;
+}
+.view-toggle button:not(:last-child) { border-right: 1px solid var(--border-mid); }
+.view-toggle button.active { background: var(--surface-2); color: var(--text); }
+.view-toggle button:hover:not(.active) { color: var(--text-2); }
+
+/* Mobile search row */
+.search-row {
+  display: none;
+  padding: var(--s) var(--m);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.search-row.open { display: flex; align-items: center; gap: var(--s); }
+.search-row .search-box { width: 100%; flex: 1; padding-left: 28px; }
+.search-row-wrap { position: relative; flex: 1; }
+.search-row-wrap .search-icon { left: 8px; }
+
+/* ── Drop Zone ───────────────────────────────────────────── */
+#drop-zone {
+  display: none;
+  margin: var(--m) var(--l) 0;
+  border: 1px dashed var(--border-mid);
+  padding: var(--xl) var(--l);
+  text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+#drop-zone.active { border-color: var(--border-hi); background: var(--surface); }
+.dz-title { font-size: 12px; font-weight: 500; color: var(--text-2); letter-spacing: .02em; }
+.dz-hint { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+/* ── Main ────────────────────────────────────────────────── */
+main { flex: 1; padding: var(--m) var(--l); }
+
+/* ── Column Header (list view) ───────────────────────────── */
+#list-col-header {
+  display: none; padding: 6px var(--m);
+  border: 1px solid var(--border); border-bottom: 1px solid var(--border-mid);
+  background: var(--surface); align-items: center; gap: var(--m);
+}
+#list-col-header.visible { display: flex; }
+.col-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-3);
+}
+.col-name  { flex: 1; }
+.col-size  { width: 72px; text-align: right; }
+.col-date  { width: 88px; text-align: right; }
+.col-act   { width: 32px; }
+
+/* ── File Grid ───────────────────────────────────────────── */
+#file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0; background: transparent; border: 1px solid var(--border);
+}
+#file-grid .file-card {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+#file-grid.list-view {
+  display: flex; flex-direction: column; gap: 0;
+  background: transparent; border: 1px solid var(--border); border-top: none;
+}
+#file-grid.list-view .file-card {
+  border-right: none; border-bottom: 1px solid var(--border);
+}
+#file-grid.list-view .file-card:last-child { border-bottom: none; }
+
+/* ── File Card ───────────────────────────────────────────── */
+.file-card {
+  background: var(--bg); padding: var(--m); cursor: pointer;
+  display: flex; flex-direction: column; gap: var(--s);
+  position: relative; user-select: none;
+  transition: background .08s; min-height: 128px; overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.file-card:hover  { background: var(--surface); }
+.file-card:active { background: var(--surface-2); }
+.file-card.selected { background: var(--surface-2); }
+
+.file-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  color: var(--text-2); display: flex; align-items: center; justify-content: center;
+}
+.file-icon svg { width: 100%; height: 100%; display: block; }
+.file-thumb {
+  width: 100%; height: 80px; object-fit: cover;
+  display: block; border-bottom: 1px solid var(--border);
+}
+/* Image placeholder — icon centered in grey band */
+.file-thumb-ph {
+  width: 100%; height: 80px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-3);
+}
+.file-thumb-ph .file-icon { width: 24px; height: 24px; }
+.file-name {
+  font-size: 12px; font-weight: 500; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4;
+}
+.file-size { font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+.file-date { display: none; font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+
+/* Checkbox */
+.file-check {
+  position: absolute; top: var(--s); left: var(--s);
+  width: 14px; height: 14px;
+  border: 1px solid var(--border-hi); background: var(--bg);
+  display: none; align-items: center; justify-content: center; color: var(--bg);
+}
+.file-card.selected .file-check {
+  display: flex; background: var(--text); border-color: var(--text); color: var(--bg);
+}
+
+/* Context button — hover-only on desktop, always visible on touch */
+.file-ctx {
+  position: absolute; top: 6px; right: 6px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-3); padding: 4px 5px;
+  cursor: pointer; line-height: 1; height: auto;
+  opacity: 0; transition: opacity .1s, border-color .1s, color .1s;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.file-card:hover .file-ctx { opacity: 1; }
+.file-ctx:hover  { border-color: var(--border-mid); color: var(--text); background: var(--surface-2); }
+.file-ctx:active { background: var(--surface-2); opacity: 1; }
+
+/* ── List View ───────────────────────────────────────────── */
+.list-view .file-card {
+  flex-direction: row; align-items: center; min-height: 0;
+  padding: 10px var(--m); gap: 10px; border-bottom: 1px solid var(--border);
+}
+.list-view .file-card:last-child { border-bottom: none; }
+.list-view .file-icon  { width: 16px; height: 16px; color: var(--text-3); }
+.list-view .file-thumb { width: 16px; height: 16px; border: none; object-fit: cover; }
+.list-view .file-thumb-ph { width: 16px; height: 16px; background: none; border: none; }
+.list-view .file-thumb-ph .file-icon { width: 16px; height: 16px; }
+.list-view .file-name  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-view .file-size  { width: 72px; text-align: right; flex-shrink: 0; }
+.list-view .file-date  { display: block; width: 88px; text-align: right; flex-shrink: 0; }
+.list-view .file-ctx   {
+  position: static; flex-shrink: 0; width: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-color: transparent; opacity: 0;
+}
+.list-view .file-card:hover .file-ctx { opacity: 1; }
+
+/* ── Upload Progress ─────────────────────────────────────── */
+#upload-progress {
+  display: none; position: fixed; bottom: var(--l); right: var(--l);
+  background: var(--bg); border: 1px solid var(--border-mid);
+  padding: var(--m); width: 272px; z-index: 200;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12);
+}
+.up-header {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-2);
+  margin-bottom: var(--s); display: flex; align-items: center; justify-content: space-between;
+}
+.progress-item { margin-top: var(--s); }
+.progress-label {
+  font-family: var(--mono); font-size: 11px; color: var(--text-2);
+  margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.progress-bar-wrap { height: 2px; background: var(--surface-2); }
+.progress-bar { height: 2px; background: var(--text-3); transition: width .25s linear; }
+.progress-bar.done  { background: var(--green); }
+.progress-bar.error { background: var(--red); }
+
+/* ── Modal ───────────────────────────────────────────────── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); z-index: 300;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg); border: 1px solid var(--border-mid);
+  padding: var(--l); width: min(392px, calc(100vw - var(--xl)));
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
+}
+.modal-title { font-size: 13px; font-weight: 600; margin-bottom: var(--m); color: var(--text); }
+.modal input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border-mid);
+  color: var(--text); font-family: var(--font); font-size: 14px;
+  padding: 0 var(--s); height: 40px; outline: none;
+  margin-bottom: var(--m); transition: border-color .1s;
+}
+.modal input:focus { border-color: var(--border-hi); }
+.modal input::placeholder { color: var(--text-3); }
+.modal-actions { display: flex; gap: var(--s); justify-content: flex-end; }
+
+/* ── Preview ─────────────────────────────────────────────── */
+#preview-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.92); z-index: 400;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+#preview-overlay.open { display: flex; }
+.prev-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 52px;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 var(--l); gap: var(--m);
+}
+.prev-name {
+  flex: 1; font-family: var(--mono); font-size: 12px; color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.prev-close {
+  cursor: pointer; color: var(--text-2);
+  padding: 6px 10px; border: 1px solid transparent;
+  transition: border-color .1s, color .1s; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.prev-close:hover  { color: var(--text); border-color: var(--border-mid); }
+.prev-close:active { background: var(--surface); }
+#preview-content {
+  margin-top: 52px; display: flex; align-items: center; justify-content: center;
+  max-width: 100vw; max-height: calc(100vh - 72px); padding: var(--m);
+}
+#preview-content img, #preview-content video {
+  max-width: min(90vw, 1200px); max-height: calc(100vh - 100px);
+  display: block; object-fit: contain;
+}
+#preview-content audio { width: min(360px, 90vw); }
+
+/* ── Context Menu (desktop) ──────────────────────────────── */
+#ctx-menu {
+  display: none; position: fixed; z-index: 600;
+  background: var(--bg); border: 1px solid var(--border-mid);
+  min-width: 160px; box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  padding: 4px 0;
+}
+#ctx-menu.open { display: block; }
+.ctx-item {
+  padding: 8px var(--m); font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; color: var(--text-2);
+  transition: background .08s, color .08s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.ctx-item:hover  { background: var(--surface-2); color: var(--text); }
+.ctx-item:active { background: var(--surface-2); }
+.ctx-item.danger { color: var(--red); }
+.ctx-item.danger:hover { background: var(--surface-2); color: var(--red); }
+.ctx-sep { border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ── Bottom Sheet (mobile context) ──────────────────────── */
+#bottom-sheet-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.3); z-index: 600;
+}
+#bottom-sheet-overlay.open { display: block; }
+#bottom-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 601;
+  background: var(--bg); border-top: 1px solid var(--border-mid);
+  padding: var(--s) 0 calc(var(--s) + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  display: none;
+}
+#bottom-sheet.open {
+  display: block;
+  transform: translateY(0);
+}
+.bs-handle {
+  width: 36px; height: 3px; background: var(--border-mid);
+  margin: 0 auto var(--s);
+}
+.bs-title {
+  font-size: 11px; font-family: var(--mono); font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-3);
+  padding: 0 var(--l) var(--s);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bs-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px var(--l); font-size: 15px; color: var(--text-2);
+  cursor: pointer; transition: background .08s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bs-item:active { background: var(--surface); }
+.bs-item.danger { color: var(--red); }
+.bs-sep { border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* ── Toast ───────────────────────────────────────────────── */
+#toast-container {
+  position: fixed; bottom: var(--l); left: 50%; transform: translateX(-50%);
+  z-index: 700; display: flex; flex-direction: column;
+  gap: var(--s); align-items: center; pointer-events: none;
+}
+.toast {
+  background: var(--bg); border: 1px solid var(--border-mid);
+  padding: 7px var(--m); font-size: 12px; color: var(--text);
+  pointer-events: auto; box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  display: flex; align-items: center; gap: 8px;
+  white-space: nowrap; animation: toastIn .12s ease;
+  max-width: calc(100vw - var(--xl));
+}
+.toast::before {
+  content: ''; display: inline-block; width: 4px; height: 4px;
+  background: currentColor; flex-shrink: 0;
+}
+.toast.success { color: var(--green); }
+.toast.error   { color: var(--red);   }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Empty State ─────────────────────────────────────────── */
+.empty { grid-column: 1/-1; padding: 56px var(--l); text-align: center; background: var(--bg); }
+.empty-title {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px;
+}
+.empty-hint { font-size: 12px; color: var(--text-3); }
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-mid); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════ */
+
+/* Touch devices: always show ctx button */
+@media (hover: none) {
+  .file-ctx { opacity: 1; }
+  .list-view .file-ctx { opacity: 1; }
+}
+
+/* ── Tablet (< 900px) ────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* Shrink search box */
+  .search-box { width: 140px; }
+  /* Hide Drop zone button from toolbar (drag not typical on tablet) */
+  #btn-drop, .t-sep { display: none; }
+}
+
+/* ── Mobile (< 600px) ────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Header */
+  header { padding: 0 var(--m); gap: var(--s); height: 48px; }
+  .h-sep { display: none; }
+  .breadcrumb { font-size: 13px; }
+
+  /* Toolbar: compact single row */
+  .toolbar {
+    padding: 0 var(--m); height: 48px; gap: 6px;
+    overflow: hidden;
+  }
+  /* Hide desktop search + separators */
+  .search-wrap, #btn-drop, .t-sep { display: none !important; }
+  /* Show mobile search icon */
+  #btn-search-mobile { display: inline-flex !important; }
+
+  /* Mobile search row */
+  .search-row { display: none; }
+  .search-row.open { display: flex; }
+
+  /* Main padding */
+  main { padding: var(--s) var(--m); }
+
+  /* Grid: 2 columns minimum */
+  #file-grid {
+    grid-template-columns: repeat(2, 1fr);
+    min-width: 0;
+  }
+
+  /* List view: hide date, shrink size */
+  .list-view .file-date { display: none; }
+  .col-date { display: none; }
+  #list-col-header.visible { padding: 6px var(--s); }
+  .list-view .file-card { padding: 10px var(--s); }
+
+  /* Upload progress: full-width bottom */
+  #upload-progress {
+    left: 0; right: 0; bottom: 0;
+    width: 100%; box-shadow: 0 -2px 16px rgba(0,0,0,.1);
+    padding-bottom: calc(var(--m) + env(safe-area-inset-bottom));
+  }
+
+  /* Drop zone: hidden (touch devices upload via button) */
+  #drop-zone { display: none !important; }
+
+  /* Buttons: comfortable tap targets */
+  button { height: 36px; }
+  .btn-primary { padding: 0 14px; font-size: 13px; }
+
+  /* File card: slightly taller tap area */
+  .file-card { padding: 12px var(--s); gap: 6px; min-height: 120px; }
+
+  /* Toast: above safe area */
+  #toast-container { bottom: calc(var(--l) + env(safe-area-inset-bottom)); }
+}
+
+/* ── Very small (< 360px) ────────────────────────────────── */
+@media (max-width: 360px) {
+  #file-grid { grid-template-columns: repeat(2, 1fr); }
+  .file-name { font-size: 11px; }
+}
+
+/* ── Global icon rules ───────────────────────────────────── */
+.icon { width: 13px; height: 13px; display: block; flex-shrink: 0; }
+.icon-xs { width: 9px; height: 9px; display: block; }
+button .icon { pointer-events: none; }
+.ctx-item .icon, .bs-item .icon { width: 12px; height: 12px; opacity: .7; }
+.prev-close .icon { width: 14px; height: 14px; }
+.btn-icon .icon { width: 14px; height: 14px; }
+
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">VaultDrive</div>
+  <div class="h-sep"></div>
+  <nav class="breadcrumb" id="breadcrumb"></nav>
+  <a class="logout-btn" href="/auth/logout" title="Sign out">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>
+      <path d="M11 11l3-3-3-3"/>
+      <line x1="14" y1="8" x2="6" y2="8"/>
+    </svg>
+  </a>
+</header>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <button class="btn-primary" onclick="UI.openUpload()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9V2M3.5 5.5 7 2l3.5 3.5"/><line x1="1" y1="12" x2="13" y2="12"/></svg> Upload</button>
+  <button class="btn-ghost"   onclick="UI.showMkdir()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4a1 1 0 0 1 1-1h3l1.5 1.5H12a1 1 0 0 1 1 1V11a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Z"/><line x1="5.5" y1="8" x2="8.5" y2="8"/><line x1="7" y1="6.5" x2="7" y2="9.5"/></svg> Folder</button>
+  <div class="t-sep"></div>
+  <button class="btn-ghost" id="btn-drop" onclick="UI.toggleDrop()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v8M3.5 6.5 7 10l3.5-3.5"/><line x1="1" y1="13" x2="13" y2="13"/></svg> Drop zone</button>
+  <div class="spacer"></div>
+
+  <!-- Desktop search -->
+  <div class="search-wrap">
+    <span class="search-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="12.5" y2="12.5"/></svg></span>
+    <input class="search-box" type="text" placeholder="Search…"
+           oninput="UI.search(this.value)" autocomplete="off" spellcheck="false">
+  </div>
+
+  <!-- Mobile search icon (hidden on desktop via CSS) -->
+  <button class="btn-icon" id="btn-search-mobile"
+          style="display:none" onclick="UI.toggleSearch()" aria-label="Search"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="12.5" y2="12.5"/></svg></button>
+
+  <div class="view-toggle">
+    <button id="vt-grid" class="active" onclick="UI.setView('grid')" title="Grid"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="5" height="5"/><rect x="8" y="1" width="5" height="5"/><rect x="1" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/></svg></button>
+    <button id="vt-list"                onclick="UI.setView('list')" title="List"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="4.5" y1="3" x2="13" y2="3"/><line x1="4.5" y1="7" x2="13" y2="7"/><line x1="4.5" y1="11" x2="13" y2="11"/><circle cx="1.5" cy="3" r=".8" fill="currentColor" stroke="none"/><circle cx="1.5" cy="7" r=".8" fill="currentColor" stroke="none"/><circle cx="1.5" cy="11" r=".8" fill="currentColor" stroke="none"/></svg></button>
+  </div>
+</div>
+
+<!-- Mobile search row -->
+<div class="search-row" id="search-row">
+  <div class="search-row-wrap">
+    <span class="search-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="5.5" cy="5.5" r="3.5"/><line x1="8.5" y1="8.5" x2="12.5" y2="12.5"/></svg></span>
+    <input class="search-box" type="text" id="mobile-search"
+           placeholder="Search…" oninput="UI.search(this.value)"
+           autocomplete="off" spellcheck="false">
+  </div>
+</div>
+
+<!-- Drop Zone -->
+<div id="drop-zone">
+  <div class="dz-title">Drop files here to upload</div>
+  <div class="dz-hint">max 50 MB · multiple files supported</div>
+</div>
+
+<!-- File area -->
+<main>
+  <div id="list-col-header">
+    <span class="col-label" style="width:20px"></span>
+    <span class="col-label col-name">Name</span>
+    <span class="col-label col-size">Size</span>
+    <span class="col-label col-date">Modified</span>
+    <span class="col-label col-act"></span>
+  </div>
+  <div id="file-grid"></div>
+</main>
+
+<!-- Upload Progress -->
+<div id="upload-progress">
+  <div class="up-header">
+    <span>Uploading</span><span id="up-count"></span>
+  </div>
+  <div id="up-items"></div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modal-mkdir">
+  <div class="modal">
+    <div class="modal-title">New Folder</div>
+    <input type="text" id="mkdir-name" placeholder="Folder name"
+           onkeydown="if(event.key==='Enter')UI.doMkdir()">
+    <div class="modal-actions">
+      <button class="btn-ghost"   onclick="UI.closeModal('modal-mkdir')">Cancel</button>
+      <button class="btn-primary" onclick="UI.doMkdir()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-rename">
+  <div class="modal">
+    <div class="modal-title">Rename</div>
+    <input type="text" id="rename-val" placeholder="New name"
+           onkeydown="if(event.key==='Enter')UI.doRename()">
+    <div class="modal-actions">
+      <button class="btn-ghost"   onclick="UI.closeModal('modal-rename')">Cancel</button>
+      <button class="btn-primary" onclick="UI.doRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Overlay -->
+<div id="preview-overlay">
+  <div class="prev-bar">
+    <span class="prev-name" id="preview-name"></span>
+    <span class="prev-close" onclick="UI.closePreview()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="12" y2="12"/><line x1="12" y1="2" x2="2" y2="12"/></svg></span>
+  </div>
+  <div id="preview-content"></div>
+</div>
+
+<!-- Desktop Context Menu -->
+<div id="ctx-menu">
+  <div class="ctx-item"        onclick="UI.ctxDownload()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v9M3.5 7.5 7 11l3.5-3.5"/><line x1="1" y1="13" x2="13" y2="13"/></svg> Download</div>
+  <div class="ctx-item"        onclick="UI.ctxRename()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5 11 1l2 2-1.5 1.5M9.5 2.5 3 9v2h2l6.5-6.5"/><line x1="1" y1="13" x2="8" y2="13"/></svg> Rename</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="UI.ctxDelete()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h10M5 4V2h4v2M5.5 4v7M8.5 4v7M3 4l.7 8h6.6L11 4"/></svg> Delete</div>
+</div>
+
+<!-- Mobile Bottom Sheet -->
+<div id="bottom-sheet-overlay" onclick="UI.closeBs()"></div>
+<div id="bottom-sheet">
+  <div class="bs-handle"></div>
+  <div class="bs-title" id="bs-title">Options</div>
+  <div class="bs-item"        onclick="UI.ctxDownload()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2v9M3.5 7.5 7 11l3.5-3.5"/><line x1="1" y1="13" x2="13" y2="13"/></svg> Download</div>
+  <div class="bs-item"        onclick="UI.ctxRename()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5 11 1l2 2-1.5 1.5M9.5 2.5 3 9v2h2l6.5-6.5"/><line x1="1" y1="13" x2="8" y2="13"/></svg> Rename</div>
+  <div class="bs-sep"></div>
+  <div class="bs-item danger" onclick="UI.ctxDelete()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h10M5 4V2h4v2M5.5 4v7M8.5 4v7M3 4l.7 8h6.6L11 4"/></svg> Delete</div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+<input type="file" id="file-input" multiple style="display:none"
+       onchange="UI.uploadFiles(this.files)">
+
+<script>
+// ── Mock Data ────────────────────────────────────────────────
+const MOCK = {
+  '/': [
+    { type:'dir',  path:'/Photos',    name:'Photos',    mtime: Date.now()-86400000*3 },
+    { type:'dir',  path:'/Documents', name:'Documents', mtime: Date.now()-86400000*10 },
+    { type:'dir',  path:'/Archives',  name:'Archives',  mtime: Date.now()-86400000*30 },
+    { type:'file', path:'/design-system.pdf', name:'design-system.pdf',
+      mime:'application/pdf', size:2847291, mtime: Date.now()-3600000 },
+    { type:'file', path:'/budget-2024.xlsx', name:'budget-2024.xlsx',
+      mime:'application/vnd.ms-excel', size:184320, mtime: Date.now()-7200000 },
+    { type:'file', path:'/README.md', name:'README.md',
+      mime:'text/markdown', size:4096, mtime: Date.now()-1800000 },
+    { type:'file', path:'/photo.jpg', name:'photo.jpg',
+      mime:'image/jpeg', size:1024000, mtime: Date.now()-900000 },
+    { type:'file', path:'/demo.mp3', name:'demo.mp3',
+      mime:'audio/mpeg', size:5242880, mtime: Date.now()-300000 },
+    { type:'file', path:'/app.zip', name:'app.zip',
+      mime:'application/zip', size:15728640, mtime: Date.now()-600000 },
+    { type:'file', path:'/index.js', name:'index.js',
+      mime:'application/javascript', size:8192, mtime: Date.now()-120000 },
+  ],
+  '/Photos': [
+    { type:'file', path:'/Photos/vacation.jpg', name:'vacation.jpg',
+      mime:'image/jpeg', size:3145728, mtime: Date.now()-172800000 },
+    { type:'file', path:'/Photos/portrait.png', name:'portrait.png',
+      mime:'image/png', size:2097152, mtime: Date.now()-259200000 },
+    { type:'file', path:'/Photos/banner.webp', name:'banner.webp',
+      mime:'image/webp', size:512000, mtime: Date.now()-86400000 },
+  ],
+  '/Documents': [
+    { type:'file', path:'/Documents/report-q1.pdf', name:'report-q1.pdf',
+      mime:'application/pdf', size:5242880, mtime: Date.now()-604800000 },
+    { type:'file', path:'/Documents/notes.md', name:'notes.md',
+      mime:'text/markdown', size:2048, mtime: Date.now()-43200000 },
+  ],
+};
+
+// ── Detect mobile ────────────────────────────────────────────
+const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
+const isTouch  = () => window.matchMedia('(hover: none)').matches;
+
+// ── State ────────────────────────────────────────────────────
+const state = {
+  path: '/', items: [], filtered: null,
+  view: localStorage.getItem('tgd-view') || 'grid',
+  ctxTarget: null, renameTarget: null,
+  longPressTimer: null,
+};
+
+// ── Mock API ─────────────────────────────────────────────────
+const api = {
+  list(path)  { return Promise.resolve(MOCK[path] || []); },
+  mkdir(path) {
+    MOCK[path] = [];
+    const parent = path.substring(0, path.lastIndexOf('/')) || '/';
+    const name   = path.split('/').pop();
+    MOCK[parent] = MOCK[parent] || [];
+    MOCK[parent].push({ type:'dir', path, name, mtime: Date.now() });
+    return Promise.resolve({ ok:true });
+  },
+  rename(from, to) {
+    const parent  = from.substring(0, from.lastIndexOf('/')) || '/';
+    const newName = to.split('/').pop();
+    MOCK[parent]  = (MOCK[parent]||[]).map(m =>
+      m.path === from ? { ...m, path:to, name:newName } : m
+    );
+    return Promise.resolve({ ok:true });
+  },
+  del(path) {
+    const parent = path.substring(0, path.lastIndexOf('/')) || '/';
+    MOCK[parent] = (MOCK[parent]||[]).filter(m => m.path !== path);
+    return Promise.resolve({ ok:true });
+  },
+  downloadURL(path) { return '#'; },
+};
+
+// ── Uploader (mock) ──────────────────────────────────────────
+const uploader = {
+  queue: [], running: false,
+  add(files) {
+    for (const f of files) this.queue.push({ file:f, id: Math.random().toString(36).slice(2) });
+    this.processQueue();
+  },
+  async processQueue() {
+    if (this.running) return;
+    this.running = true;
+    document.getElementById('upload-progress').style.display = 'block';
+    while (this.queue.length > 0) await this.uploadOne(this.queue.shift());
+    this.running = false;
+    setTimeout(() => {
+      document.getElementById('upload-progress').style.display = 'none';
+      document.getElementById('up-items').innerHTML = '';
+    }, 1800);
+    UI.refresh();
+  },
+  async uploadOne({ file, id }) {
+    const container = document.getElementById('up-items');
+    const div = document.createElement('div');
+    div.className = 'progress-item';
+    div.innerHTML = `<div class="progress-label">${escHtml(file.name)}</div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="bar-${id}" style="width:2%"></div></div>`;
+    container.appendChild(div);
+    document.getElementById('up-count').textContent = this.queue.length ? `(${this.queue.length+1})` : '';
+    const bar = document.getElementById('bar-' + id);
+    await new Promise(res => {
+      let w = 2;
+      const iv = setInterval(() => {
+        w = Math.min(w + Math.random() * 15, 95);
+        bar.style.width = w + '%';
+        if (w >= 95) { clearInterval(iv); res(); }
+      }, 100);
+    });
+    bar.style.width = '100%'; bar.classList.add('done');
+    const path = state.path === '/' ? '/' + file.name : state.path + '/' + file.name;
+    MOCK[state.path] = MOCK[state.path] || [];
+    if (!MOCK[state.path].find(m => m.path === path))
+      MOCK[state.path].push({ type:'file', path, name:file.name,
+        mime:file.type||'application/octet-stream', size:file.size, mtime:Date.now() });
+    await new Promise(r => setTimeout(r, 300));
+  }
+};
+
+// ── UI ───────────────────────────────────────────────────────
+const UI = {
+  async navigate(path) {
+    state.path = path; state.filtered = null;
+    this.renderBreadcrumb();
+    await this.refresh();
+  },
+  async refresh() {
+    state.items = await api.list(state.path);
+    this.renderGrid(state.items);
+  },
+
+  renderBreadcrumb() {
+    const parts = state.path.split('/').filter(Boolean);
+    let html = `<a onclick="UI.navigate('/')">~</a>`;
+    let built = '';
+    for (const p of parts) {
+      built += '/' + p;
+      const cap = built;
+      html += `<span class="bc-sep">/</span><a onclick="UI.navigate('${escAttr(cap)}')">${escHtml(p)}</a>`;
+    }
+    document.getElementById('breadcrumb').innerHTML = html;
+  },
+
+  renderGrid(items) {
+    const grid      = document.getElementById('file-grid');
+    const isListView = state.view === 'list';
+    grid.className  = isListView ? 'list-view' : '';
+    const header    = document.getElementById('list-col-header');
+    header.classList.toggle('visible', isListView);
+
+    if (!items || !items.length) {
+      grid.innerHTML = `<div class="empty">
+        <div class="empty-title">No files</div>
+        <div class="empty-hint">Upload a file or create a folder to get started</div>
+      </div>`;
+      return;
+    }
+    const sorted = [...items].sort((a,b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity:'base' });
+    });
+    grid.innerHTML = sorted.map(m => this.cardHTML(m)).join('');
+
+    // Bind long-press on touch
+    grid.querySelectorAll('.file-card').forEach(card => {
+      card.addEventListener('touchstart',  e => this.onTouchStart(e, card), { passive:true });
+      card.addEventListener('touchend',    ()  => this.onTouchEnd(), { passive:true });
+      card.addEventListener('touchmove',   ()  => this.onTouchEnd(), { passive:true });
+    });
+  },
+
+  cardHTML(meta) {
+    const isDir = meta.type === 'dir';
+    const size    = isDir ? '' : formatSize(meta.size);
+    const date    = formatDate(meta.mtime);
+    const iconSvg = fileIcon(meta.type, meta.mime, meta.name);
+    const thumb   = `<div class="file-icon">${iconSvg}</div>`;
+
+    return `<div class="file-card"
+      data-path="${escAttr(meta.path)}" data-name="${escAttr(meta.name)}" data-type="${meta.type}"
+      ondblclick="UI.onDblClick(this)"
+      onclick="UI.onCardClick(event,this)"
+      oncontextmenu="UI.onCtxMenu(event,this)">
+      <span class="file-check"><svg class="icon-xs" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5 4 8 8.5 2.5"/></svg></span>
+      ${thumb}
+      <div class="file-name">${escHtml(meta.name)}</div>
+      <div class="file-size">${size || '—'}</div>
+      <div class="file-date">${date}</div>
+      <span class="file-ctx"
+        onclick="event.stopPropagation();UI.onCtxMenu(event,this.parentElement)"
+        oncontextmenu="event.stopPropagation()"><svg class="icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="3" r=".8" fill="currentColor" stroke="none"/><circle cx="7" cy="7" r=".8" fill="currentColor" stroke="none"/><circle cx="7" cy="11" r=".8" fill="currentColor" stroke="none"/></svg></span>
+    </div>`;
+  },
+
+  // ── Card interactions ──────────────────────────────────────
+  onCardClick(e, card) {
+    if (e.ctrlKey || e.metaKey) {
+      card.classList.toggle('selected');
+    } else {
+      document.querySelectorAll('.file-card.selected')
+              .forEach(c => c !== card && c.classList.remove('selected'));
+      card.classList.toggle('selected');
+    }
+  },
+  onDblClick(card) {
+    if (card.dataset.type === 'dir') this.navigate(card.dataset.path);
+    else toast('Preview not available in demo mode');
+  },
+
+  // Touch long-press → context menu
+  onTouchStart(e, card) {
+    state.longPressTimer = setTimeout(() => {
+      state.longPressTimer = null;
+      this.showBs(card);
+    }, 500);
+  },
+  onTouchEnd() {
+    if (state.longPressTimer) { clearTimeout(state.longPressTimer); state.longPressTimer = null; }
+  },
+
+  // ── Context Menu / Bottom Sheet ────────────────────────────
+  onCtxMenu(e, card) {
+    e.preventDefault(); e.stopPropagation();
+    state.ctxTarget = card;
+    if (isTouch() || isMobile()) {
+      this.showBs(card);
+    } else {
+      const menu = document.getElementById('ctx-menu');
+      menu.classList.add('open');
+      const x = Math.min(e.clientX, window.innerWidth  - 180);
+      const y = Math.min(e.clientY, window.innerHeight - 130);
+      menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    }
+  },
+  showBs(card) {
+    state.ctxTarget = card;
+    document.getElementById('bs-title').textContent = card.dataset.name || 'Options';
+    document.getElementById('bottom-sheet-overlay').classList.add('open');
+    const bs = document.getElementById('bottom-sheet');
+    bs.style.display = 'block';
+    requestAnimationFrame(() => bs.classList.add('open'));
+  },
+  closeBs() {
+    const bs = document.getElementById('bottom-sheet');
+    bs.classList.remove('open');
+    document.getElementById('bottom-sheet-overlay').classList.remove('open');
+    setTimeout(() => { bs.style.display = 'none'; }, 240);
+  },
+
+  ctxDownload() {
+    const path = state.ctxTarget?.dataset.path;
+    if (!path) return;
+    if (state.ctxTarget.dataset.type === 'dir') { toast('Cannot download folders', 'error'); return; }
+    toast('Download not available in demo');
+    this.closeCtx(); this.closeBs();
+  },
+  ctxRename() {
+    state.renameTarget = state.ctxTarget;
+    const name = state.renameTarget.dataset.name || '';
+    document.getElementById('rename-val').value = name;
+    this.closeCtx(); this.closeBs();
+    this.openModal('modal-rename');
+    setTimeout(() => {
+      const el = document.getElementById('rename-val');
+      el.focus();
+      const dot = name.lastIndexOf('.');
+      el.setSelectionRange(0, dot > 0 ? dot : name.length);
+    }, 80);
+  },
+  async ctxDelete() {
+    const path = state.ctxTarget?.dataset.path;
+    if (!path) return;
+    this.closeCtx(); this.closeBs();
+    if (!confirm('Delete this item? This cannot be undone.')) return;
+    await api.del(path);
+    toast('Deleted');
+    this.refresh();
+  },
+  closeCtx() { document.getElementById('ctx-menu').classList.remove('open'); },
+
+  // ── Modals ─────────────────────────────────────────────────
+  async doRename() {
+    const card    = state.renameTarget; if (!card) return;
+    const oldPath = card.dataset.path;
+    const newName = document.getElementById('rename-val').value.trim(); if (!newName) return;
+    const parent  = oldPath.substring(0, oldPath.lastIndexOf('/')) || '/';
+    const newPath = parent === '/' ? '/' + newName : parent + '/' + newName;
+    const res = await api.rename(oldPath, newPath);
+    if (res.ok) { toast('Renamed'); this.refresh(); }
+    else toast(res.error || 'Failed', 'error');
+    this.closeModal('modal-rename');
+  },
+  showMkdir() {
+    document.getElementById('mkdir-name').value = '';
+    this.openModal('modal-mkdir');
+    setTimeout(() => document.getElementById('mkdir-name').focus(), 80);
+  },
+  async doMkdir() {
+    const name = document.getElementById('mkdir-name').value.trim(); if (!name) return;
+    const path = state.path === '/' ? '/' + name : state.path + '/' + name;
+    const res  = await api.mkdir(path);
+    if (res.ok) { toast('Folder created', 'success'); this.refresh(); }
+    else toast(res.error || 'Failed', 'error');
+    this.closeModal('modal-mkdir');
+  },
+  openModal(id)  { document.getElementById(id).classList.add('open'); },
+  closeModal(id) { document.getElementById(id).classList.remove('open'); },
+
+  // ── Upload ─────────────────────────────────────────────────
+  openUpload()       { document.getElementById('file-input').click(); },
+  uploadFiles(files) { if (files.length) uploader.add(files); },
+
+  // ── Drop Zone ──────────────────────────────────────────────
+  toggleDrop() {
+    const dz = document.getElementById('drop-zone');
+    dz.style.display = dz.style.display === 'block' ? 'none' : 'block';
+  },
+
+  // ── View ───────────────────────────────────────────────────
+  setView(v) {
+    state.view = v; localStorage.setItem('tgd-view', v);
+    document.getElementById('vt-grid').classList.toggle('active', v === 'grid');
+    document.getElementById('vt-list').classList.toggle('active', v === 'list');
+    this.renderGrid(state.filtered || state.items);
+  },
+
+  // ── Search ─────────────────────────────────────────────────
+  search(q) {
+    if (!q) { state.filtered = null; this.renderGrid(state.items); return; }
+    const lower = q.toLowerCase();
+    state.filtered = state.items.filter(m => m.name.toLowerCase().includes(lower));
+    this.renderGrid(state.filtered);
+  },
+  toggleSearch() {
+    const row = document.getElementById('search-row');
+    const btn = document.getElementById('btn-search-mobile');
+    const open = row.classList.toggle('open');
+    btn.style.borderColor = open ? 'var(--border-hi)' : 'transparent';
+    btn.style.color = open ? 'var(--text)' : '';
+    if (open) {
+      setTimeout(() => document.getElementById('mobile-search').focus(), 80);
+    } else {
+      document.getElementById('mobile-search').value = '';
+      this.search('');
+    }
+  },
+  closeSearch() {
+    const row = document.getElementById('search-row');
+    if (!row.classList.contains('open')) return;
+    this.toggleSearch();
+  },
+
+  // ── Preview ────────────────────────────────────────────────
+  preview(path) {
+    const meta = (state.filtered || state.items).find(m => m.path === path);
+    if (!meta) return;
+    const url = api.downloadURL(path);
+    let inner = '';
+    if (isImage(meta.mime, meta.name)) {
+      inner = `<img src="${url}" alt="${escAttr(meta.name)}">`;
+    } else if ((meta.mime||'').startsWith('video/')) {
+      inner = `<video controls autoplay src="${url}"></video>`;
+    } else if ((meta.mime||'').startsWith('audio/')) {
+      inner = `<audio controls autoplay src="${url}"></audio>`;
+    } else {
+      toast('Preview not available in demo'); return;
+    }
+    document.getElementById('preview-content').innerHTML = inner;
+    document.getElementById('preview-name').textContent  = meta.name;
+    document.getElementById('preview-overlay').classList.add('open');
+  },
+  closePreview() {
+    document.getElementById('preview-overlay').classList.remove('open');
+    document.getElementById('preview-content').innerHTML = '';
+  }
+};
+
+// ── Drag & Drop (desktop) ────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  if (!isMobile()) { dropZone.style.display = 'block'; dropZone.classList.add('active'); }
+});
+document.addEventListener('dragleave', e => {
+  if (!e.relatedTarget || !document.contains(e.relatedTarget))
+    dropZone.classList.remove('active');
+});
+document.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('active');
+  if (e.dataTransfer.files.length) uploader.add(e.dataTransfer.files);
+});
+
+// ── Global event listeners ───────────────────────────────────
+document.addEventListener('click', e => {
+  if (!e.target.closest('#ctx-menu') && !e.target.classList.contains('file-ctx'))
+    UI.closeCtx();
+  if (e.target.classList.contains('modal-overlay'))
+    e.target.classList.remove('open');
+  if (e.target.id === 'preview-overlay') UI.closePreview();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { UI.closePreview(); UI.closeCtx(); UI.closeSearch(); }
+  if (e.key === 'Backspace' && !e.target.closest('input,textarea') && state.path !== '/')
+    UI.navigate(state.path.substring(0, state.path.lastIndexOf('/')) || '/');
+});
+
+// ── Helpers ──────────────────────────────────────────────────
+// SVG icon library — all 20×20 viewBox, stroke-based, currentColor
+const SVG = {
+  folder: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 6a2 2 0 0 1 2-2h3.172a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 10.828 6H16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6Z"/>
+  </svg>`,
+  image: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="3" width="16" height="14"/>
+    <circle cx="7" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+    <path d="m2 14 4-4 3 3 3-3 6 5"/>
+  </svg>`,
+  video: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="12" height="12"/>
+    <path d="m14 8 4-2v8l-4-2V8Z"/>
+  </svg>`,
+  audio: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 4v12M5 6v8M13 5v10M17 7v6M1 8v4"/>
+  </svg>`,
+  pdf: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5Z"/>
+    <path d="M11 2v5h5"/>
+    <path d="M7 12h2.5c.83 0 1.5-.67 1.5-1.5S10.33 9 9.5 9H7v6"/>
+  </svg>`,
+  word: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5Z"/>
+    <path d="M11 2v5h5"/>
+    <path d="M7 10h6M7 13h4"/>
+  </svg>`,
+  excel: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5Z"/>
+    <path d="M11 2v5h5"/>
+    <path d="m7 10 2.5 5M12 10l-2.5 5"/>
+  </svg>`,
+  zip: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5Z"/>
+    <path d="M11 2v5h5"/>
+    <path d="M9 9v1m0 1v1m0 1v1m0 1v1" stroke-width="1.8"/>
+    <rect x="8" y="15" width="4" height="2"/>
+  </svg>`,
+  code: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5Z"/>
+    <path d="M11 2v5h5"/>
+    <path d="m8 12-2 1.5L8 15M12 12l2 1.5L12 15"/>
+  </svg>`,
+  file: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5Z"/>
+    <path d="M11 2v5h5"/>
+  </svg>`,
+};
+
+function fileIcon(type='file', mime='', name='') {
+  if (type === 'dir') return SVG.folder;
+  if (isImage(mime, name)) return SVG.image;
+  if (mime.startsWith('video/')) return SVG.video;
+  if (mime.startsWith('audio/')) return SVG.audio;
+  const ext = name.split('.').pop().toLowerCase();
+  if (ext === 'pdf')                                       return SVG.pdf;
+  if (['doc','docx','txt','md','rtf'].includes(ext))       return SVG.word;
+  if (['xls','xlsx','csv'].includes(ext))                  return SVG.excel;
+  if (['zip','rar','7z','tar','gz','bz2'].includes(ext))   return SVG.zip;
+  if (['js','ts','jsx','tsx','py','go','rs','java','c','cpp',
+       'html','css','json','yaml','toml','sh'].includes(ext)) return SVG.code;
+  return SVG.file;
+}
+function isImage(mime='', name='') {
+  if (mime.startsWith('image/')) return true;
+  return ['jpg','jpeg','png','gif','webp','bmp','avif','svg','ico']
+    .includes(name.split('.').pop().toLowerCase());
+}
+function formatSize(b) {
+  if (!b) return '0 B';
+  if (b < 1024)    return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(2) + ' MB';
+}
+function formatDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date();
+  if (d.getFullYear() === now.getFullYear())
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  return d.toLocaleDateString('en-US', { year:'2-digit', month:'short', day:'numeric' });
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) { return escHtml(s); }
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type; el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ── Boot ─────────────────────────────────────────────────────
+UI.navigate('/');
+UI.setView(state.view);
+</script>
+</body>
+</html>
