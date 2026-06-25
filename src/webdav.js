@@ -66,7 +66,7 @@ async function davGet(path, env, url) {
     return new Response(`<ul>${rows}</ul>`, { headers: { 'Content-Type': 'text/html;charset=utf-8' } });
   }
 
-  const upstream = env.STORAGE === 'webdav'
+  const upstream = env.storage === 'webdav'
     ? await storageProxyDownload(env, meta)
     : await fetch(await storageDownloadURL(env, meta));
   return new Response(upstream.body, {
@@ -89,7 +89,7 @@ async function davPut(path, request, env) {
     type: 'file', path, name,
     size: size || body.byteLength, mime, fileId, s3Key,
     mtime: Date.now(), etag: fileId,
-    storage: env.STORAGE || 'telegram',
+    storage: env.storage || 'telegram',
   };
   await saveFileMeta(env, path, meta);
   return new Response(null, { status: 201 });
