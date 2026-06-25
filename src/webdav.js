@@ -5,7 +5,7 @@
 
 import { listDir, getFileMeta, saveFileMeta, deleteFileMeta, moveFileMeta }
   from './store.js';
-import { storageUpload, storageDownloadURL, storageDelete } from './storage.js';
+import { storageUpload, storageDownloadURL, storageDelete, storageProxyDownload } from './storage.js';
 
 const DAV_MOUNT = '/dav';
 
@@ -66,8 +66,9 @@ async function davGet(path, env, url) {
     return new Response(`<ul>${rows}</ul>`, { headers: { 'Content-Type': 'text/html;charset=utf-8' } });
   }
 
-  const fileURL  = await storageDownloadURL(env, meta);
-  const upstream = await fetch(fileURL);
+  const upstream = env.STORAGE === 'webdav'
+    ? await storageProxyDownload(env, meta)
+    : await fetch(await storageDownloadURL(env, meta));
   return new Response(upstream.body, {
     headers: {
       'Content-Type':        meta.mime || 'application/octet-stream',
