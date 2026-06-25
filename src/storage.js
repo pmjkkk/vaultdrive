@@ -1,39 +1,131 @@
 // ============================================================
 //  storage.js — 统一存储抽象层
 //
-//  根据 env.STORAGE 选择后端：
+//  env.STORAGE 选择后端：
 //    'telegram'（默认）→ Telegram Bot API
 //    's3'             → S3 兼容存储（AWS / R2 / MinIO 等）
+//    'webdav'         → 远程 WebDAV 服务器（Nextcloud / 群晖 / 坚果云等）
+//
+//  WebDAV 存储所需环境变量：
+//    WEBDAV_STORAGE_URL    远程 WebDAV 根地址，如 https://dav.example.com/remote.php/dav/files/user/
+//    WEBDAV_STORAGE_USER   远程 WebDAV 用户名
+//    WEBDAV_STORAGE_PASS   远程 WebDAV 密码
+//
+//  注意：WEBDAV_USER / WEBDAV_PASS 是本项目自身对外暴露的 WebDAV 接口凭证，
+//        WEBDAV_STORAGE_* 是连接远端 WebDAV 服务器的凭证，两者完全独立。
 //
 //  S3 所需环境变量：
-//    S3_ENDPOINT       端点 URL，如 https://xxx.r2.cloudflarestorage.com
-//    S3_BUCKET         Bucket 名称
-//    S3_ACCESS_KEY     Access Key ID
-//    S3_SECRET_KEY     Secret Access Key
-//    S3_REGION         区域，默认 auto（R2 专用）
-//    S3_PUBLIC_URL     可选，文件公开下载的 CDN 前缀（不设则走 Worker 代理）
+//    S3_ENDPOINT    S3_BUCKET    S3_ACCESS_KEY    S3_SECRET_KEY
+//    S3_REGION（默认 auto）    S3_PUBLIC_URL（可选，公开 CDN 前缀）
 // ============================================================
 
 import { tgUpload, tgDownloadURL } from './telegram.js';
 
 // ── 上传 ─────────────────────────────────────────────────────
 export async function storageUpload(env, buffer, filename, mime) {
-  if (env.STORAGE === 's3') return s3Upload(env, buffer, filename, mime);
-  return tgUpload(env, buffer, filename, mime);
-}
-
-// ── 下载 URL ─────────────────────────────────────────────────
-export async function storageDownloadURL(env, meta) {
-  if (env.STORAGE === 's3') return s3DownloadURL(env, meta);
-  return tgDownloadURL(env, meta.fileId);
-}
-
-// ── 删除文件实体（S3 需要，TG 不删消息）─────────────────────
-export async function storageDelete(env, meta) {
-  if (env.STORAGE === 's3' && meta.s3Key) {
-    await s3Request(env, 'DELETE', meta.s3Key);
+  switch (env.STORAGE) {
+    case 's3':     return s3Upload(env, buffer, filename, mime);
+    case 'webdav': return wdUpload(env, buffer, filename, mime);
+    default:       return tgUpload(env, buffer, filename, mime);
   }
-  // Telegram 不支持 Bot 删除已发消息，仅删 KV 元数据即可
+}
+
+// ── 下载（返回 Response 或 URL 字符串）───────────────────────
+export async function storageDownloadURL(env, meta) {
+  switch (env.STORAGE) {
+    case 's3':     return s3DownloadURL(env, meta);
+    case 'webdav': return wdDownloadURL(env, meta);
+    default:       return tgDownloadURL(env, meta.fileId);
+  }
+}
+
+// ── 删除文件实体 ──────────────────────────────────────────────
+export async function storageDelete(env, meta) {
+  switch (env.STORAGE) {
+    case 's3':
+      if (meta.s3Key) await s3Request(env, 'DELETE', meta.s3Key);
+      break;
+    case 'webdav':
+      if (meta.wdPath) await wdRequest(env, 'DELETE', meta.wdPath);
+      break;
+    // Telegram：Bot 无法删除已发消息，仅删 KV 元数据
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  WebDAV 远程存储实现
+// ════════════════════════════════════════════════════════════
+
+function wdBase(env) {
+  return env.WEBDAV_STORAGE_URL.replace(/\/$/, '');
+}
+
+function wdAuth(env) {
+  return 'Basic ' + btoa(`${env.WEBDAV_STORAGE_USER}:${env.WEBDAV_STORAGE_PASS}`);
+}
+
+// 确保远端目录存在（MKCOL，忽略 405 已存在）
+async function wdMkcol(env, dirPath) {
+  const url = `${wdBase(env)}/${dirPath}`;
+  const r   = await fetch(url, {
+    method: 'MKCOL',
+    headers: { Authorization: wdAuth(env) }
+  });
+  if (!r.ok && r.status !== 405 && r.status !== 409) {
+    // 409 = 父级不存在；递归创建父目录
+    const parent = dirPath.split('/').slice(0, -1).join('/');
+    if (parent) await wdMkcol(env, parent);
+    await fetch(url, { method: 'MKCOL', headers: { Authorization: wdAuth(env) } });
+  }
+}
+
+async function wdUpload(env, buffer, filename, mime) {
+  // 用日期分目录：files/2024/01/timestamp-filename
+  const now    = new Date();
+  const dir    = `files/${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}`;
+  const safeFilename = filename.replace(/[^a-zA-Z0-9._\-\u4e00-\u9fff]/g, '_');
+  const wdPath = `${dir}/${Date.now()}-${safeFilename}`;
+
+  await wdMkcol(env, dir);
+
+  const url  = `${wdBase(env)}/${wdPath}`;
+  const resp = await fetch(url, {
+    method:  'PUT',
+    headers: {
+      Authorization:  wdAuth(env),
+      'Content-Type': mime,
+    },
+    body: buffer,
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`WebDAV upload failed ${resp.status}: ${text.slice(0, 200)}`);
+  }
+
+  return { fileId: wdPath, wdPath, size: buffer.byteLength };
+}
+
+function wdDownloadURL(env, meta) {
+  const path = meta.wdPath || meta.fileId;
+  // 通过 Worker 代理下载（避免暴露存储凭证）
+  return `${wdBase(env)}/${path}`;
+}
+
+async function wdRequest(env, method, wdPath) {
+  const url = `${wdBase(env)}/${wdPath}`;
+  return fetch(url, {
+    method,
+    headers: { Authorization: wdAuth(env) }
+  });
+}
+
+// ── 代理下载（WebDAV 后端专用，带认证头）────────────────────
+export async function storageProxyDownload(env, meta) {
+  if (env.STORAGE !== 'webdav') return null;
+  const path = meta.wdPath || meta.fileId;
+  const url  = `${wdBase(env)}/${path}`;
+  return fetch(url, { headers: { Authorization: wdAuth(env) } });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -41,29 +133,21 @@ export async function storageDelete(env, meta) {
 // ════════════════════════════════════════════════════════════
 
 async function s3Upload(env, buffer, filename, mime) {
-  // S3 key = 用时间戳防重名
   const key  = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9._\-]/g, '_')}`;
   const size = buffer.byteLength;
-
   await s3Request(env, 'PUT', key, buffer, {
     'Content-Type':   mime,
     'Content-Length': String(size),
   });
-
   return { fileId: key, s3Key: key, size };
 }
 
 async function s3DownloadURL(env, meta) {
   const key = meta.s3Key || meta.fileId;
-  // 优先用公开 CDN
-  if (env.S3_PUBLIC_URL) {
-    return `${env.S3_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
-  }
-  // 否则生成预签名 URL（有效期 1 小时）
+  if (env.S3_PUBLIC_URL) return `${env.S3_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
   return presign(env, key, 3600);
 }
 
-// ── S3 请求（Signature V4）────────────────────────────────────
 async function s3Request(env, method, key, body, extraHeaders = {}) {
   const endpoint = env.S3_ENDPOINT.replace(/\/$/, '');
   const bucket   = env.S3_BUCKET;
@@ -71,46 +155,30 @@ async function s3Request(env, method, key, body, extraHeaders = {}) {
   const url      = `${endpoint}/${bucket}/${key}`;
 
   const now     = new Date();
-  const dateStr = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').slice(0, 15) + 'Z'; // 20240101T120000Z
-  const dateKey = dateStr.slice(0, 8); // 20240101
+  const dateStr = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
+  const dateKey = dateStr.slice(0, 8);
 
   const payloadHash = body
     ? await sha256hex(body)
     : 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
   const headers = {
-    host:                new URL(endpoint).host,
-    'x-amz-date':        dateStr,
-    'x-amz-content-sha256': payloadHash,
+    host:                    new URL(endpoint).host,
+    'x-amz-date':            dateStr,
+    'x-amz-content-sha256':  payloadHash,
     ...extraHeaders,
   };
   if (method === 'PUT' && !headers['Content-Type'])
     headers['Content-Type'] = 'application/octet-stream';
 
-  const signedHeaders = Object.keys(headers).sort().join(';');
-  const canonicalHeaders = Object.keys(headers).sort()
-    .map(k => `${k}:${headers[k]}\n`).join('');
-  const canonicalRequest = [
-    method,
-    `/${bucket}/${key}`,
-    '',
-    canonicalHeaders,
-    signedHeaders,
-    payloadHash,
-  ].join('\n');
+  const signedHeaders    = Object.keys(headers).sort().join(';');
+  const canonicalHeaders = Object.keys(headers).sort().map(k => `${k}:${headers[k]}\n`).join('');
+  const canonicalRequest = [method, `/${bucket}/${key}`, '', canonicalHeaders, signedHeaders, payloadHash].join('\n');
 
-  const credScope = `${dateKey}/${region}/s3/aws4_request`;
-  const strToSign = [
-    'AWS4-HMAC-SHA256',
-    dateStr,
-    credScope,
-    await sha256hex(canonicalRequest),
-  ].join('\n');
-
-  const signingKey = await hmacChain(
-    `AWS4${env.S3_SECRET_KEY}`, dateKey, region, 's3', 'aws4_request'
-  );
-  const signature = await hmacHex(signingKey, strToSign);
+  const credScope  = `${dateKey}/${region}/s3/aws4_request`;
+  const strToSign  = ['AWS4-HMAC-SHA256', dateStr, credScope, await sha256hex(canonicalRequest)].join('\n');
+  const signingKey = await hmacChain(`AWS4${env.S3_SECRET_KEY}`, dateKey, region, 's3', 'aws4_request');
+  const signature  = await hmacHex(signingKey, strToSign);
 
   const authorization = `AWS4-HMAC-SHA256 Credential=${env.S3_ACCESS_KEY}/${credScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
@@ -127,72 +195,49 @@ async function s3Request(env, method, key, body, extraHeaders = {}) {
   return resp;
 }
 
-// ── 预签名 URL（GET）────────────────────────────────────────
 async function presign(env, key, expiry) {
-  const endpoint = env.S3_ENDPOINT.replace(/\/$/, '');
-  const bucket   = env.S3_BUCKET;
-  const region   = env.S3_REGION || 'auto';
-
-  const now     = new Date();
-  const dateStr = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
-  const dateKey = dateStr.slice(0, 8);
+  const endpoint  = env.S3_ENDPOINT.replace(/\/$/, '');
+  const bucket    = env.S3_BUCKET;
+  const region    = env.S3_REGION || 'auto';
+  const now       = new Date();
+  const dateStr   = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
+  const dateKey   = dateStr.slice(0, 8);
   const credScope = `${dateKey}/${region}/s3/aws4_request`;
-  const credential = `${env.S3_ACCESS_KEY}/${credScope}`;
 
   const params = new URLSearchParams({
-    'X-Amz-Algorithm':  'AWS4-HMAC-SHA256',
-    'X-Amz-Credential': credential,
-    'X-Amz-Date':       dateStr,
-    'X-Amz-Expires':    String(expiry),
+    'X-Amz-Algorithm':     'AWS4-HMAC-SHA256',
+    'X-Amz-Credential':    `${env.S3_ACCESS_KEY}/${credScope}`,
+    'X-Amz-Date':          dateStr,
+    'X-Amz-Expires':       String(expiry),
     'X-Amz-SignedHeaders': 'host',
   });
 
-  const host = new URL(endpoint).host;
-  const canonicalRequest = [
-    'GET',
-    `/${bucket}/${key}`,
-    params.toString(),
-    `host:${host}\n`,
-    'host',
-    'UNSIGNED-PAYLOAD',
-  ].join('\n');
+  const host             = new URL(endpoint).host;
+  const canonicalRequest = ['GET', `/${bucket}/${key}`, params.toString(), `host:${host}\n`, 'host', 'UNSIGNED-PAYLOAD'].join('\n');
+  const strToSign        = ['AWS4-HMAC-SHA256', dateStr, credScope, await sha256hex(canonicalRequest)].join('\n');
+  const signingKey       = await hmacChain(`AWS4${env.S3_SECRET_KEY}`, dateKey, region, 's3', 'aws4_request');
+  const sig              = await hmacHex(signingKey, strToSign);
 
-  const strToSign = [
-    'AWS4-HMAC-SHA256',
-    dateStr,
-    credScope,
-    await sha256hex(canonicalRequest),
-  ].join('\n');
-
-  const signingKey = await hmacChain(
-    `AWS4${env.S3_SECRET_KEY}`, dateKey, region, 's3', 'aws4_request'
-  );
-  const sig = await hmacHex(signingKey, strToSign);
   params.append('X-Amz-Signature', sig);
-
   return `${endpoint}/${bucket}/${key}?${params}`;
 }
 
 // ── Crypto helpers ────────────────────────────────────────────
 async function sha256hex(data) {
-  const buf = typeof data === 'string'
-    ? new TextEncoder().encode(data)
-    : data instanceof ArrayBuffer ? data : data.buffer ?? data;
+  const buf  = typeof data === 'string' ? new TextEncoder().encode(data)
+             : data instanceof ArrayBuffer ? data : data.buffer ?? data;
   const hash = await crypto.subtle.digest('SHA-256', buf);
   return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
-
 async function hmac(key, data) {
   const keyBuf = typeof key === 'string' ? new TextEncoder().encode(key) : key;
-  const k = await crypto.subtle.importKey('raw', keyBuf, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const k   = await crypto.subtle.importKey('raw', keyBuf, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const sig = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(data));
   return new Uint8Array(sig);
 }
-
 async function hmacHex(key, data) {
   return [...await hmac(key, data)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
-
 async function hmacChain(key, ...parts) {
   let k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
   for (const p of parts) k = await hmac(k, p);
