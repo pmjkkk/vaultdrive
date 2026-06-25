@@ -4,7 +4,7 @@
 // ============================================================
 
 export async function handleUI(request, env, url) {
-  const showLogout = env.AUTH_DISABLED !== 'true';
+  const showLogout = env.auth_disabled !== 'true';
   return new Response(buildHTML(showLogout), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' }
   });
